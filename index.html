@@ -504,7 +504,7 @@
                 } else if (char === ' ') {
                     await sleep(tick);
                 } else if (char === '\n') {
-                    await sleep(1000); // 1 second pause for uncleaned line-breaks
+                    await sleep(500); // 1 second pause for uncleaned line-breaks
                 } else if (char !== '\r') { // Ignore carriage returns
                     const noteIndex = keyMap[char];
                     if (noteIndex !== undefined) {
