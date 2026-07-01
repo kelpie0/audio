@@ -8,11 +8,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            /* Darkish, bluish purple palette */
             --bg-color: #0a0812; 
             --panel-bg: #141120;
             --text-color: #ffffff;
-            --accent-color: #7c3aed; /* Deep bluish purple */
+            --accent-color: #7c3aed; 
             --white-key: #ffffff;
             --black-key: #2c2c2c;
             --white-key-width: 34px;
@@ -24,7 +23,6 @@
             font-family: 'Inter', Helvetica, sans-serif;
             background-color: var(--bg-color);
             
-            /* Moving Diagonal Checkerboard */
             background-image: 
                 linear-gradient(45deg, #110e1c 25%, transparent 25%, transparent 75%, #110e1c 75%, #110e1c),
                 linear-gradient(45deg, #110e1c 25%, transparent 25%, transparent 75%, #110e1c 75%, #110e1c);
@@ -76,9 +74,7 @@
             transition: 0.2s;
         }
 
-        .sound-link:hover {
-            border-bottom: 1px solid var(--accent-color);
-        }
+        .sound-link:hover { border-bottom: 1px solid var(--accent-color); }
 
         /* Controls */
         .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
@@ -91,35 +87,19 @@
         }
 
         /* Custom Cross-Browser Sliders */
-        input[type="range"] {
-            -webkit-appearance: none; appearance: none;
-            width: 100%; background: transparent; margin: 5px 0; outline: none;
-        }
-        
-        input[type="range"]::-webkit-slider-runnable-track {
-            width: 100%; height: 6px; cursor: pointer;
-            background: #231d36; border-radius: 3px;
-        }
-        
+        input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; margin: 5px 0; outline: none; }
+        input[type="range"]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: #231d36; border-radius: 3px; }
         input[type="range"]::-webkit-slider-thumb {
-            height: 16px; width: 16px; border-radius: 50%;
-            background: var(--accent-color); cursor: pointer;
-            -webkit-appearance: none; margin-top: -5px;
-            box-shadow: 0 0 10px rgba(124, 58, 237, 0.4);
+            height: 16px; width: 16px; border-radius: 50%; background: var(--accent-color); cursor: pointer;
+            -webkit-appearance: none; margin-top: -5px; box-shadow: 0 0 10px rgba(124, 58, 237, 0.4);
         }
-        
-        input[type="range"]::-moz-range-track {
-            width: 100%; height: 6px; cursor: pointer;
-            background: #231d36; border-radius: 3px;
-        }
-        
+        input[type="range"]::-moz-range-track { width: 100%; height: 6px; cursor: pointer; background: #231d36; border-radius: 3px; }
         input[type="range"]::-moz-range-thumb {
-            height: 16px; width: 16px; border-radius: 50%;
-            background: var(--accent-color); cursor: pointer; border: none;
+            height: 16px; width: 16px; border-radius: 50%; background: var(--accent-color); cursor: pointer; border: none;
             box-shadow: 0 0 10px rgba(124, 58, 237, 0.4);
         }
 
-        /* Sequencer */
+        /* Sequencer & Buttons */
         textarea {
             width: 100%; height: 60px; background: #0a0812; color: #fff;
             border: 1px solid #332b4a; border-radius: 8px; padding: 10px;
@@ -134,8 +114,14 @@
             transition: 0.2s; text-transform: lowercase;
         }
         button:hover { background: var(--accent-color); color: white; }
+        
         #stop-btn { background: #3a1a1a; color: #ff8888; } 
         #stop-btn:hover { background: #ff4444; color: white;}
+        
+        #harmonize-btn { 
+            background: #110e1c; border: 1px solid #332b4a; 
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5); transition: 0.3s all ease;
+        }
 
         .bend-indicator {
             background: #0a0812; padding: 6px 10px; border-radius: 6px;
@@ -214,6 +200,9 @@
                     <div class="bend-indicator" id="bend-ui">bend: 0 st</div>
                 </div>
             </div>
+            <div class="btn-group" style="margin-top: 15px;">
+                <button id="harmonize-btn">harmonize: off</button>
+            </div>
         </div>
 
         <div class="panel">
@@ -251,6 +240,7 @@
         const activeNotes = {}; 
         let bendAmount = 0; 
         let wheelTimeout;
+        let harmonizeLevel = 0; // 0: off, 1: +Octave, 2: +Fifth, 3: +Double Octave
 
         const baseFreq = 65.41; // C2
 
@@ -313,7 +303,7 @@
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 
                 masterGain = audioCtx.createGain();
-                masterGain.gain.value = 0.4;
+                masterGain.gain.value = 0.35; // Lowered slightly to account for up to 4 voices playing at once
                 analyser = audioCtx.createAnalyser();
                 analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.88;
                 
@@ -357,12 +347,30 @@
             filter: document.getElementById('filter'),
             echo: document.getElementById('echo'),
             reverb: document.getElementById('reverb'),
-            bend: document.getElementById('bend-ui')
+            bend: document.getElementById('bend-ui'),
+            harmBtn: document.getElementById('harmonize-btn')
         };
 
         UI.filter.addEventListener('input', e => { if(filterNode) filterNode.frequency.value = e.target.value; });
         UI.echo.addEventListener('input', e => { if(echoGain) echoGain.gain.value = e.target.value; });
         UI.reverb.addEventListener('input', e => { if(reverbGain) reverbGain.gain.value = e.target.value; });
+
+        // Harmonize Toggle Logic
+        const harmLabels = ['harmonize: off', 'harmonize: 1x (shimmer)', 'harmonize: 2x (dream)', 'harmonize: 3x (ethereal)'];
+        UI.harmBtn.addEventListener('click', () => {
+            harmonizeLevel = (harmonizeLevel + 1) % 4;
+            UI.harmBtn.innerText = harmLabels[harmonizeLevel];
+            
+            if (harmonizeLevel > 0) {
+                UI.harmBtn.style.color = '#000';
+                UI.harmBtn.style.background = 'var(--accent-color)';
+                UI.harmBtn.style.boxShadow = '0 0 15px rgba(124, 58, 237, 0.6)';
+            } else {
+                UI.harmBtn.style.color = '#fff';
+                UI.harmBtn.style.background = '#110e1c';
+                UI.harmBtn.style.boxShadow = 'inset 0 0 10px rgba(0,0,0,0.5)';
+            }
+        });
 
         function applyBend() {
             if(!audioCtx) return;
@@ -370,12 +378,13 @@
             UI.bend.innerText = `bend: ${bendAmount > 0 ? '+' : ''}${bendAmount.toFixed(1)} st`;
 
             for (let id in activeNotes) {
-                const note = activeNotes[id];
-                if (note.source.frequency && note.baseFreq) {
-                    note.source.frequency.setTargetAtTime(note.baseFreq * bendRatio, audioCtx.currentTime, 0.05);
-                } else if (note.source.playbackRate && note.baseRate) {
-                    note.source.playbackRate.setTargetAtTime(note.baseRate * bendRatio, audioCtx.currentTime, 0.05);
-                }
+                activeNotes[id].nodes.forEach(node => {
+                    if (node.source.frequency && node.baseFreq) {
+                        node.source.frequency.setTargetAtTime(node.baseFreq * bendRatio, audioCtx.currentTime, 0.05);
+                    } else if (node.source.playbackRate && node.baseRate) {
+                        node.source.playbackRate.setTargetAtTime(node.baseRate * bendRatio, audioCtx.currentTime, 0.05);
+                    }
+                });
             }
         }
 
@@ -386,12 +395,10 @@
             applyBend();
 
             clearTimeout(wheelTimeout);
-            wheelTimeout = setTimeout(() => {
-                bendAmount = 0; 
-                applyBend();
-            }, 150);
+            wheelTimeout = setTimeout(() => { bendAmount = 0; applyBend(); }, 150);
         }, { passive: false });
 
+        // --- Core Audio Engine (With Polyphonic Harmonization) ---
         function playNote(rawNoteIndex, trackingId) {
             initAudio();
             
@@ -400,44 +407,58 @@
             }
 
             const transposeOffset = parseInt(UI.transpose.value);
-            const noteIndex = rawNoteIndex + transposeOffset;
-
+            const baseNoteIndex = rawNoteIndex + transposeOffset;
             const mode = UI.preset.value;
-            const noteGain = audioCtx.createGain();
-            noteGain.connect(masterGain);
-            noteGain.gain.setValueAtTime(0, audioCtx.currentTime);
-            noteGain.gain.linearRampToValueAtTime(1, audioCtx.currentTime + 0.015);
-
-            let source;
             const bendRatio = Math.pow(2, bendAmount / 12);
-            let currentBaseFreq, currentBaseRate;
+            
+            // Mathematical intervals to add: Root, Octave Up, Perfect 5th, Double Octave Up
+            const hIntervals = [0, 12, 7, 24]; 
+            // Decrease volume of stacked notes so it doesn't clip
+            const hGainScales = [0.8, 0.4, 0.3, 0.2]; 
+            
+            const spawnedNodes = [];
 
-            if (mode === 'sampler' && customAudioBuffer) {
-                currentBaseRate = Math.pow(2, (noteIndex - 30) / 12);
-                source = audioCtx.createBufferSource();
-                source.buffer = customAudioBuffer;
-                source.playbackRate.value = currentBaseRate * bendRatio;
-                source.connect(noteGain);
-                source.start();
-            } else {
-                currentBaseFreq = baseFreq * Math.pow(2, noteIndex / 12);
-                source = audioCtx.createOscillator();
-                source.frequency.value = currentBaseFreq * bendRatio;
+            for (let h = 0; h <= harmonizeLevel; h++) {
+                const noteIndex = baseNoteIndex + hIntervals[h];
+                const targetVolume = hGainScales[h];
 
-                if (mode === 'organ') {
-                    const wave = audioCtx.createPeriodicWave(
-                        new Float32Array([0, 1, 0.5, 0.25, 0.1]), 
-                        new Float32Array([0, 0, 0, 0, 0])
-                    );
-                    source.setPeriodicWave(wave);
+                const noteGain = audioCtx.createGain();
+                noteGain.connect(masterGain);
+                noteGain.gain.setValueAtTime(0, audioCtx.currentTime);
+                noteGain.gain.linearRampToValueAtTime(targetVolume, audioCtx.currentTime + 0.015);
+
+                let source;
+                let currentBaseFreq, currentBaseRate;
+
+                if (mode === 'sampler' && customAudioBuffer) {
+                    currentBaseRate = Math.pow(2, (noteIndex - 30) / 12);
+                    source = audioCtx.createBufferSource();
+                    source.buffer = customAudioBuffer;
+                    source.playbackRate.value = currentBaseRate * bendRatio;
+                    source.connect(noteGain);
+                    source.start();
                 } else {
-                    source.type = mode; 
+                    currentBaseFreq = baseFreq * Math.pow(2, noteIndex / 12);
+                    source = audioCtx.createOscillator();
+                    source.frequency.value = currentBaseFreq * bendRatio;
+
+                    if (mode === 'organ') {
+                        const wave = audioCtx.createPeriodicWave(
+                            new Float32Array([0, 1, 0.5, 0.25, 0.1]), 
+                            new Float32Array([0, 0, 0, 0, 0])
+                        );
+                        source.setPeriodicWave(wave);
+                    } else {
+                        source.type = mode; 
+                    }
+                    source.connect(noteGain);
+                    source.start();
                 }
-                source.connect(noteGain);
-                source.start();
+
+                spawnedNodes.push({ source, noteGain, baseFreq: currentBaseFreq, baseRate: currentBaseRate });
             }
 
-            activeNotes[trackingId] = { source, noteGain, baseFreq: currentBaseFreq, baseRate: currentBaseRate };
+            activeNotes[trackingId] = { nodes: spawnedNodes };
             
             const keyElement = document.querySelector(`.key[data-index="${rawNoteIndex}"]`);
             if(keyElement) keyElement.classList.add('active');
@@ -446,12 +467,14 @@
         function stopNote(trackingId, rawNoteIndex, releaseTime = 0.3) {
             if (!activeNotes[trackingId]) return;
 
-            const { source, noteGain } = activeNotes[trackingId];
+            const { nodes } = activeNotes[trackingId];
             
-            noteGain.gain.cancelScheduledValues(audioCtx.currentTime);
-            noteGain.gain.setValueAtTime(noteGain.gain.value, audioCtx.currentTime);
-            noteGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + releaseTime);
-            source.stop(audioCtx.currentTime + releaseTime);
+            nodes.forEach(node => {
+                node.noteGain.gain.cancelScheduledValues(audioCtx.currentTime);
+                node.noteGain.gain.setValueAtTime(node.noteGain.gain.value, audioCtx.currentTime);
+                node.noteGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + releaseTime);
+                node.source.stop(audioCtx.currentTime + releaseTime);
+            });
             
             delete activeNotes[trackingId];
             
@@ -528,7 +551,6 @@
             canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
 
             const gradient = canvasCtx.createLinearGradient(0, 0, 0, canvas.height);
-            // Updated to the new deep purple RGB: 124, 58, 237
             gradient.addColorStop(0, 'rgba(124, 58, 237, 0.8)');
             gradient.addColorStop(1, 'rgba(124, 58, 237, 0.0)');
 
