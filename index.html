@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>61-Key Sampler & Visualizer</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --text-color: #ffffff;
+            --accent-color: #00ffcc;
+            --white-key: #ffffff;
+            --black-key: #2c2c2c;
+            --white-key-width: 34px;
+            --black-key-width: 22px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        body.dragover {
+            background-color: #2a2a2a;
+            border: 5px dashed var(--accent-color);
+        }
+
+        header {
+            text-align: center;
+            margin: 15px 0;
+        }
+
+        h1 { margin: 0 0 5px 0; font-weight: 400; letter-spacing: 2px;}
+        p { margin: 0; color: #aaaaaa; font-size: 14px;}
+
+        .controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        select {
+            padding: 8px;
+            font-size: 14px;
+            background: var(--panel-bg);
+            color: var(--accent-color);
+            border: 1px solid var(--accent-color);
+            border-radius: 5px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .bend-indicator {
+            background: #000;
+            padding: 8px 12px;
+            border-radius: 5px;
+            border: 1px solid #444;
+            font-family: monospace;
+            color: #ccc;
+        }
+
+        canvas {
+            width: 95%;
+            max-width: 1200px;
+            height: 180px;
+            background: #000;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.15);
+            margin-bottom: 25px;
+        }
+
+        .keyboard-wrapper {
+            width: 95vw;
+            max-width: 1300px;
+            overflow-x: auto;
+            display: flex;
+            justify-content: center;
+            padding-bottom: 20px;
+        }
+
+        .keyboard {
+            display: flex;
+            position: relative;
+            user-select: none;
+            height: 200px;
+        }
+
+        .key {
+            border-radius: 0 0 4px 4px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 12px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+
+        .key.white {
+            width: var(--white-key-width);
+            height: 200px;
+            background: var(--white-key);
+            border: 1px solid #bbb;
+            color: #333;
+            z-index: 1;
+        }
+
+        .key.white.active {
+            background: #d4d4d4;
+            height: 196px;
+        }
+
+        .key.black {
+            width: var(--black-key-width);
+            height: 120px;
+            background: var(--black-key);
+            color: #eee;
+            position: absolute;
+            z-index: 2;
+            top: 0;
+            border: 1px solid #111;
+            box-shadow: 0 3px 5px rgba(0,0,0,0.5);
+        }
+
+        .key.black.active {
+            background: #4a4a4a;
+            height: 118px;
+        }
+        
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            color: var(--accent-color);
+            font-size: 24px;
+            display: none;
+            pointer-events: none;
+        }
+        
+        body.dragover #overlay { display: flex; }
+
+    </style>
+</head>
+<body>
+
+    <div id="overlay">Drop audio file here to load custom sample!</div>
+
+    <header>
+        <h1>61-KEY VIRTUAL SYNTH</h1>
+        <p>Uses all letters/numbers. Hold Shift for black keys. Scroll wheel to Pitch Bend.</p>
+    </header>
+
+    <div class="controls">
+        <select id="preset-selector">
+            <option value="sine">Preset 1: Sine Synth</option>
+            <option value="square">Preset 2: Retro Square</option>
+            <option value="sawtooth">Preset 3: Gritty Sawtooth</option>
+            <option value="triangle">Preset 4: Smooth Triangle</option>
+            <option value="organ">Preset 5: Classic Organ</option>
+            <option value="sampler" id="sampler-option" disabled>Custom Sample (Drag & Drop a file)</option>
+        </select>
+        <div class="bend-indicator" id="bend-ui">PITCH BEND: 0 ST</div>
+    </div>
+
+    <canvas id="visualizer"></canvas>
+
+    <div class="keyboard-wrapper">
+        <div id="keyboard" class="keyboard"></div>
+    </div>
+
+    <script>
+        let audioCtx, analyser, masterGain;
+        let customAudioBuffer = null;
+        
+        const activeNotes = {}; 
+      let bendAmount = 0;
+      let spaceHeld = false;
+      const MAX_BEND = 2.5;
+
+        const baseFreq = 65.41; // C2
+
+        const layoutSpec = [
+            { k: '1', t: 'w', note: 0 }, { k: '!', t: 'b', note: 1 }, { k: '2', t: 'w', note: 2 }, { k: '@', t: 'b', note: 3 },
+            { k: '3', t: 'w', note: 4 }, { k: '4', t: 'w', note: 5 }, { k: '$', t: 'b', note: 6 }, { k: '5', t: 'w', note: 7 },
+            { k: '%', t: 'b', note: 8 }, { k: '6', t: 'w', note: 9 }, { k: '^', t: 'b', note: 10 }, { k: '7', t: 'w', note: 11 },
+            { k: '8', t: 'w', note: 12 }, { k: '*', t: 'b', note: 13 }, { k: '9', t: 'w', note: 14 }, { k: '(', t: 'b', note: 15 },
+            { k: '0', t: 'w', note: 16 }, { k: 'q', t: 'w', note: 17 }, { k: 'Q', t: 'b', note: 18 }, { k: 'w', t: 'w', note: 19 },
+            { k: 'W', t: 'b', note: 20 }, { k: 'e', t: 'w', note: 21 }, { k: 'E', t: 'b', note: 22 }, { k: 'r', t: 'w', note: 23 },
+            { k: 't', t: 'w', note: 24 }, { k: 'T', t: 'b', note: 25 }, { k: 'y', t: 'w', note: 26 }, { k: 'Y', t: 'b', note: 27 },
+            { k: 'u', t: 'w', note: 28 }, { k: 'i', t: 'w', note: 29 }, { k: 'I', t: 'b', note: 30 }, { k: 'o', t: 'w', note: 31 },
+            { k: 'O', t: 'b', note: 32 }, { k: 'p', t: 'w', note: 33 }, { k: 'P', t: 'b', note: 34 }, { k: 'a', t: 'w', note: 35 },
+            { k: 's', t: 'w', note: 36 }, { k: 'S', t: 'b', note: 37 }, { k: 'd', t: 'w', note: 38 }, { k: 'D', t: 'b', note: 39 },
+            { k: 'f', t: 'w', note: 40 }, { k: 'g', t: 'w', note: 41 }, { k: 'G', t: 'b', note: 42 }, { k: 'h', t: 'w', note: 43 },
+            { k: 'H', t: 'b', note: 44 }, { k: 'j', t: 'w', note: 45 }, { k: 'J', t: 'b', note: 46 }, { k: 'k', t: 'w', note: 47 },
+            { k: 'l', t: 'w', note: 48 }, { k: 'L', t: 'b', note: 49 }, { k: 'z', t: 'w', note: 50 }, { k: 'Z', t: 'b', note: 51 },
+            { k: 'x', t: 'w', note: 52 }, { k: 'c', t: 'w', note: 53 }, { k: 'C', t: 'b', note: 54 }, { k: 'v', t: 'w', note: 55 },
+            { k: 'V', t: 'b', note: 56 }, { k: 'b', t: 'w', note: 57 }, { k: 'B', t: 'b', note: 58 }, { k: 'n', t: 'w', note: 59 },
+            { k: 'm', t: 'w', note: 60 }
+        ];
+
+        const keyMap = {}; 
+        const keyboardContainer = document.getElementById('keyboard');
+        let whiteKeyCount = 0;
+        const wWidth = 34; 
+        const bWidth = 22; 
+
+        layoutSpec.forEach(item => {
+            keyMap[item.k] = item.note;
+            const keyDiv = document.createElement('div');
+            keyDiv.className = `key ${item.t === 'w' ? 'white' : 'black'}`;
+            keyDiv.dataset.index = item.note;
+            keyDiv.innerText = item.k;
+
+            if (item.t === 'w') {
+                keyboardContainer.appendChild(keyDiv);
+                whiteKeyCount++;
+            } else {
+                const leftPos = (whiteKeyCount * wWidth) - (bWidth / 2);
+                keyDiv.style.left = `${leftPos}px`;
+                keyboardContainer.appendChild(keyDiv);
+            }
+        });
+
+        keyboardContainer.style.width = `${whiteKeyCount * wWidth}px`;
+
+        const presetSelector = document.getElementById('preset-selector');
+        const bendUI = document.getElementById('bend-ui');
+        const canvas = document.getElementById('visualizer');
+        const canvasCtx = canvas.getContext('2d');
+        canvas.width = 1200;
+        canvas.height = 180;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                
+                // HIGHER FFT SIZE and SMOOTHING CONSTANT for the new fluid visualizer
+                analyser.fftSize = 2048; 
+                analyser.smoothingTimeConstant = 0.88; 
+                
+                masterGain = audioCtx.createGain();
+                masterGain.gain.value = 0.4;
+                masterGain.connect(analyser);
+                analyser.connect(audioCtx.destination);
+                drawVisualizer();
+            }
+        }
+
+        // --- Pitch Bend logic ---
+        function applyBend() {
+            if(!audioCtx) return;
+            const bendRatio = Math.pow(2, bendAmount / 12);
+            bendUI.innerText = `PITCH BEND: ${bendAmount > 0 ? '+' : ''}${bendAmount.toFixed(1)} ST`;
+
+            for (let id in activeNotes) {
+                const note = activeNotes[id];
+                if (note.source.frequency && note.baseFreq) {
+                    note.source.frequency.setTargetAtTime(note.baseFreq * bendRatio, audioCtx.currentTime, 0.02);
+                } else if (note.source.playbackRate && note.baseRate) {
+                    note.source.playbackRate.setTargetAtTime(note.baseRate * bendRatio, audioCtx.currentTime, 0.02);
+                }
+            }
+        }
+
+        window.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            initAudio();
+            bendAmount += e.deltaY * -0.01;
+            bendAmount = Math.max(-2, Math.min(2, bendAmount));
+
+            applyBend();
+
+            clearTimeout(wheelTimeout);
+            wheelTimeout = setTimeout(() => {
+            bendAmount = 0;
+            applyBend();
+            }, 150);
+        }, { passive: false });
+
+
+        // --- Fluid Visualizer ---
+        function drawVisualizer() {
+            requestAnimationFrame(drawVisualizer);
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            analyser.getByteFrequencyData(dataArray);
+
+            // Clear Background
+            canvasCtx.fillStyle = '#000000';
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Create smooth gradient fill
+            const gradient = canvasCtx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, 'rgba(0, 255, 204, 0.8)');
+            gradient.addColorStop(1, 'rgba(0, 255, 204, 0.0)');
+
+            canvasCtx.beginPath();
+            canvasCtx.moveTo(0, canvas.height);
+
+            const sliceWidth = canvas.width / bufferLength;
+            let x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                // Scale value to avoid clipping at the absolute top of the canvas
+                const v = dataArray[i] / 255.0;
+                const y = canvas.height - (v * canvas.height * 0.85); 
+
+                if (i === 0) {
+                    canvasCtx.moveTo(x, y);
+                } else {
+                    canvasCtx.lineTo(x, y);
+                }
+                x += sliceWidth;
+            }
+
+            canvasCtx.lineTo(canvas.width, canvas.height);
+            canvasCtx.lineTo(0, canvas.height);
+            canvasCtx.closePath();
+
+            // Fill the path
+            canvasCtx.fillStyle = gradient;
+            canvasCtx.fill();
+
+            // Add a glowing top line
+            canvasCtx.shadowBlur = 10;
+            canvasCtx.shadowColor = '#00ffcc';
+            canvasCtx.lineWidth = 2;
+            canvasCtx.strokeStyle = '#ffffff';
+            canvasCtx.stroke();
+            canvasCtx.shadowBlur = 0; // reset
+        }
+
+        // --- Core Audio Gen ---
+        function playNote(noteIndex, trackingId) {
+            initAudio();
+            if (activeNotes[trackingId]) return;
+
+            const mode = presetSelector.value;
+            const noteGain = audioCtx.createGain();
+            noteGain.connect(masterGain);
+            noteGain.gain.setValueAtTime(0, audioCtx.currentTime);
+            noteGain.gain.linearRampToValueAtTime(1, audioCtx.currentTime + 0.015);
+
+            let source;
+            const bendRatio = Math.pow(2, bendAmount / 12);
+            let currentBaseFreq, currentBaseRate;
+
+            if (mode === 'sampler' && customAudioBuffer) {
+                // FIXED ROOT PITCH: 
+                // We subtract 30 so that Note Index 30 (the dead center of the keyboard)
+                // has a rate of 1.0 (original pitch). Lower keys slow it down, higher keys speed it up.
+                currentBaseRate = Math.pow(2, (noteIndex - 30) / 12);
+                
+                source = audioCtx.createBufferSource();
+                source.buffer = customAudioBuffer;
+                source.playbackRate.value = currentBaseRate * bendRatio;
+                source.connect(noteGain);
+                source.start();
+            } else {
+                currentBaseFreq = baseFreq * Math.pow(2, noteIndex / 12);
+                source = audioCtx.createOscillator();
+                source.frequency.value = currentBaseFreq * bendRatio;
+
+                if (mode === 'organ') {
+                    const real = new Float32Array([0, 1, 0.5, 0.25, 0.1]);
+                    const imag = new Float32Array([0, 0, 0, 0, 0]);
+                    const wave = audioCtx.createPeriodicWave(real, imag);
+                    source.setPeriodicWave(wave);
+                } else {
+                    source.type = mode; 
+                }
+                source.connect(noteGain);
+                source.start();
+            }
+
+            activeNotes[trackingId] = { source, noteGain, baseFreq: currentBaseFreq, baseRate: currentBaseRate };
+            
+            const keyElement = document.querySelector(`.key[data-index="${noteIndex}"]`);
+            if(keyElement) keyElement.classList.add('active');
+        }
+
+        function stopNote(trackingId, noteIndex) {
+            if (!activeNotes[trackingId]) return;
+
+            const { source, noteGain } = activeNotes[trackingId];
+            noteGain.gain.setValueAtTime(noteGain.gain.value, audioCtx.currentTime);
+            noteGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+            source.stop(audioCtx.currentTime + 0.3);
+            
+            delete activeNotes[trackingId];
+            
+            const keyElement = document.querySelector(`.key[data-index="${noteIndex}"]`);
+            if(keyElement) keyElement.classList.remove('active');
+        }
+
+        // --- Keyboard Controls ---
+        window.addEventListener('keydown', (e) => {
+            if (e.repeat || e.key === 'Shift') return;
+            
+            const noteIndex = keyMap[e.key];
+            if (noteIndex !== undefined) {
+                playNote(noteIndex, e.code);
+            }
+        });
+        window.addEventListener('keydown', (e) => {
+    if (e.code === "Space") {
+        e.preventDefault();
+        spaceHeld = true;
+    }
+});
+
+window.addEventListener('keyup', (e) => {
+    if (e.code === "Space") {
+        e.preventDefault();
+        spaceHeld = false;
+
+        // Snap back to centre only after releasing Space
+        bendAmount = 0;
+        applyBend();
+    }
+});
+
+        window.addEventListener('keyup', (e) => {
+            if (activeNotes[e.code]) {
+                const indexToStop = layoutSpec.find(x => x.k === e.key)?.note 
+                                 || layoutSpec.find(x => x.k === e.key.toLowerCase())?.note;
+                stopNote(e.code, indexToStop);
+            }
+        });
+
+        // --- Mouse Controls ---
+        document.getElementById('keyboard').addEventListener('mousedown', (e) => {
+            if(e.target.classList.contains('key')) {
+                const noteIndex = parseInt(e.target.dataset.index);
+                playNote(noteIndex, `mouse_${noteIndex}`);
+            }
+        });
+        
+        document.getElementById('keyboard').addEventListener('mouseup', (e) => {
+            if(e.target.classList.contains('key')) {
+                const noteIndex = parseInt(e.target.dataset.index);
+                stopNote(`mouse_${noteIndex}`, noteIndex);
+            }
+        });
+        
+        document.getElementById('keyboard').addEventListener('mouseleave', (e) => {
+            if(e.target.classList.contains('key')) {
+                const noteIndex = parseInt(e.target.dataset.index);
+                stopNote(`mouse_${noteIndex}`, noteIndex);
+            }
+        });
+
+        // --- Drag & Drop ---
+        const dropZone = document.body;
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('audio/')) {
+                initAudio(); 
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    try {
+                        customAudioBuffer = await audioCtx.decodeAudioData(event.target.result);
+                        const samplerOption = document.getElementById('sampler-option');
+                        samplerOption.disabled = false;
+                        samplerOption.text = `Sample: ${file.name.substring(0, 15)}...`;
+                        presetSelector.value = 'sampler';
+                    } catch (err) {
+                        alert("Error decoding audio file.");
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        });
+    </script>
+</body>
+</html>
