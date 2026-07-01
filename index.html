@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>61-Key Sampler & Visualizer</title>
+    <title>61-Key Synth & Sequencer</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -17,143 +17,84 @@
         }
 
         body {
-            margin: 0;
-            padding: 0;
+            margin: 0; padding: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
+            display: flex; flex-direction: column; align-items: center;
+            height: 100vh; overflow: hidden;
         }
 
         body.dragover {
-            background-color: #2a2a2a;
-            border: 5px dashed var(--accent-color);
+            background-color: #2a2a2a; border: 5px dashed var(--accent-color);
         }
 
-        header {
-            text-align: center;
-            margin: 15px 0;
-        }
-
+        header { text-align: center; margin: 15px 0; }
         h1 { margin: 0 0 5px 0; font-weight: 400; letter-spacing: 2px;}
         p { margin: 0; color: #aaaaaa; font-size: 14px;}
 
-        .controls {
-            margin-bottom: 15px;
-            display: flex;
-            gap: 15px;
-            align-items: center;
+        /* UI Panels */
+        .dashboard {
+            display: flex; gap: 20px; width: 95%; max-width: 1200px; margin-bottom: 15px;
         }
 
-        select {
-            padding: 8px;
-            font-size: 14px;
-            background: var(--panel-bg);
-            color: var(--accent-color);
-            border: 1px solid var(--accent-color);
-            border-radius: 5px;
-            outline: none;
-            cursor: pointer;
+        .panel {
+            background: var(--panel-bg); padding: 15px; border-radius: 8px;
+            border: 1px solid #333; flex: 1; display: flex; flex-direction: column;
         }
+
+        .panel h3 { margin: 0 0 10px 0; font-size: 14px; color: var(--accent-color); text-transform: uppercase;}
+
+        /* Controls */
+        .controls-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+        }
+        
+        .control-group { display: flex; flex-direction: column; }
+        .control-group label { font-size: 11px; color: #ccc; margin-bottom: 4px; }
+        
+        select, input[type="range"] {
+            width: 100%; background: #111; color: var(--accent-color);
+            border: 1px solid #444; border-radius: 4px; padding: 5px; outline: none;
+        }
+
+        /* Sequencer */
+        textarea {
+            width: 100%; height: 60px; background: #111; color: #fff;
+            border: 1px solid #444; border-radius: 4px; padding: 8px;
+            font-family: monospace; resize: none; outline: none; box-sizing: border-box;
+        }
+
+        .btn-group { display: flex; gap: 10px; margin-top: 10px; }
+        button {
+            flex: 1; padding: 8px; background: #333; color: white; border: none;
+            border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s;
+        }
+        button:hover { background: var(--accent-color); color: black; }
+        #stop-btn { background: #552222; } #stop-btn:hover { background: #ff4444; }
 
         .bend-indicator {
-            background: #000;
-            padding: 8px 12px;
-            border-radius: 5px;
-            border: 1px solid #444;
-            font-family: monospace;
-            color: #ccc;
+            background: #000; padding: 5px 10px; border-radius: 4px;
+            border: 1px solid #444; font-family: monospace; color: #ccc; text-align: center;
         }
 
+        /* Visualizer */
         canvas {
-            width: 95%;
-            max-width: 1200px;
-            height: 180px;
-            background: #000;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0, 255, 204, 0.15);
-            margin-bottom: 25px;
+            width: 95%; max-width: 1200px; height: 120px; background: #000;
+            border-radius: 8px; box-shadow: 0 0 20px rgba(0, 255, 204, 0.1); margin-bottom: 20px;
         }
 
-        .keyboard-wrapper {
-            width: 95vw;
-            max-width: 1300px;
-            overflow-x: auto;
-            display: flex;
-            justify-content: center;
-            padding-bottom: 20px;
-        }
-
-        .keyboard {
-            display: flex;
-            position: relative;
-            user-select: none;
-            height: 200px;
-        }
-
-        .key {
-            border-radius: 0 0 4px 4px;
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            padding-bottom: 12px;
-            font-size: 13px;
-            font-weight: bold;
-            cursor: pointer;
-            box-sizing: border-box;
-        }
-
-        .key.white {
-            width: var(--white-key-width);
-            height: 200px;
-            background: var(--white-key);
-            border: 1px solid #bbb;
-            color: #333;
-            z-index: 1;
-        }
-
-        .key.white.active {
-            background: #d4d4d4;
-            height: 196px;
-        }
-
-        .key.black {
-            width: var(--black-key-width);
-            height: 120px;
-            background: var(--black-key);
-            color: #eee;
-            position: absolute;
-            z-index: 2;
-            top: 0;
-            border: 1px solid #111;
-            box-shadow: 0 3px 5px rgba(0,0,0,0.5);
-        }
-
-        .key.black.active {
-            background: #4a4a4a;
-            height: 118px;
-        }
+        /* Keyboard */
+        .keyboard-wrapper { width: 95vw; max-width: 1300px; overflow-x: auto; display: flex; justify-content: center; padding-bottom: 10px; }
+        .keyboard { display: flex; position: relative; user-select: none; height: 180px; }
+        .key { border-radius: 0 0 4px 4px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 10px; font-size: 12px; font-weight: bold; cursor: pointer; box-sizing: border-box; }
+        .key.white { width: var(--white-key-width); height: 180px; background: var(--white-key); border: 1px solid #bbb; color: #333; z-index: 1; }
+        .key.white.active { background: #d4d4d4; height: 176px; }
+        .key.black { width: var(--black-key-width); height: 110px; background: var(--black-key); color: #eee; position: absolute; z-index: 2; top: 0; border: 1px solid #111; box-shadow: 0 3px 5px rgba(0,0,0,0.5); }
+        .key.black.active { background: #4a4a4a; height: 108px; }
         
-        #overlay {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            color: var(--accent-color);
-            font-size: 24px;
-            display: none;
-            pointer-events: none;
-        }
-        
+        #overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 100; color: var(--accent-color); font-size: 24px; display: none; pointer-events: none; }
         body.dragover #overlay { display: flex; }
-
     </style>
 </head>
 <body>
@@ -161,20 +102,62 @@
     <div id="overlay">Drop audio file here to load custom sample!</div>
 
     <header>
-        <h1>61-KEY VIRTUAL SYNTH</h1>
-        <p>Uses all letters/numbers. Hold Shift for black keys. Scroll wheel to Pitch Bend.</p>
+        <h1>VIRTUAL STUDIO & SEQUENCER</h1>
+        <p>Type to play. Drag & drop samples. Paste sheet music to Auto-Play.</p>
     </header>
 
-    <div class="controls">
-        <select id="preset-selector">
-            <option value="sine">Preset 1: Sine Synth</option>
-            <option value="square">Preset 2: Retro Square</option>
-            <option value="sawtooth">Preset 3: Gritty Sawtooth</option>
-            <option value="triangle">Preset 4: Smooth Triangle</option>
-            <option value="organ">Preset 5: Classic Organ</option>
-            <option value="sampler" id="sampler-option" disabled>Custom Sample (Drag & Drop a file)</option>
-        </select>
-        <div class="bend-indicator" id="bend-ui">PITCH BEND: 0 ST</div>
+    <div class="dashboard">
+        <div class="panel">
+            <h3>Sound Engine & Effects</h3>
+            <div class="controls-grid">
+                <div class="control-group">
+                    <label>Instrument Patch</label>
+                    <select id="preset-selector">
+                        <option value="sine">Preset 1: Sine Synth</option>
+                        <option value="square">Preset 2: Retro Square</option>
+                        <option value="sawtooth">Preset 3: Gritty Sawtooth</option>
+                        <option value="triangle">Preset 4: Smooth Triangle</option>
+                        <option value="organ">Preset 5: Classic Organ</option>
+                        <option value="sampler" id="sampler-option" disabled>Custom Sample (Drag & Drop)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Transpose (Tone Shift)</label>
+                    <input type="range" id="transpose" min="-12" max="12" value="0">
+                </div>
+                <div class="control-group">
+                    <label>Filter Cutoff (Tone)</label>
+                    <input type="range" id="filter" min="200" max="20000" value="20000">
+                </div>
+                <div class="control-group">
+                    <label>Echo Amount</label>
+                    <input type="range" id="echo" min="0" max="1" step="0.05" value="0">
+                </div>
+                <div class="control-group">
+                    <label>Reverb Amount</label>
+                    <input type="range" id="reverb" min="0" max="1" step="0.05" value="0">
+                </div>
+                <div class="control-group">
+                    <label>Wheel Status</label>
+                    <div class="bend-indicator" id="bend-ui">BEND: 0 ST</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>Auto-Play Sheet Music</h3>
+            <textarea id="sheet-music" placeholder="Paste sheet music here... E.g., [^E] T i E T i | [7r] T i"></textarea>
+            <div class="controls-grid" style="margin-top: 10px;">
+                <div class="control-group">
+                    <label>Tempo (Tick Speed)</label>
+                    <input type="range" id="tempo" min="50" max="500" value="200">
+                </div>
+                <div class="btn-group" style="margin: 0; align-items: flex-end;">
+                    <button id="play-btn">PLAY</button>
+                    <button id="stop-btn">STOP</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <canvas id="visualizer"></canvas>
@@ -185,15 +168,17 @@
 
     <script>
         let audioCtx, analyser, masterGain;
+        let filterNode, delayNode, feedbackNode, echoGain, convolverNode, reverbGain;
         let customAudioBuffer = null;
+        let isAutoPlaying = false;
         
         const activeNotes = {}; 
-      let bendAmount = 0;
-      let spaceHeld = false;
-      const MAX_BEND = 2.5;
+        let bendAmount = 0; 
+        let wheelTimeout;
 
         const baseFreq = 65.41; // C2
 
+        // Layout matching Virtual Piano
         const layoutSpec = [
             { k: '1', t: 'w', note: 0 }, { k: '!', t: 'b', note: 1 }, { k: '2', t: 'w', note: 2 }, { k: '@', t: 'b', note: 3 },
             { k: '3', t: 'w', note: 4 }, { k: '4', t: 'w', note: 5 }, { k: '$', t: 'b', note: 6 }, { k: '5', t: 'w', note: 7 },
@@ -216,8 +201,7 @@
         const keyMap = {}; 
         const keyboardContainer = document.getElementById('keyboard');
         let whiteKeyCount = 0;
-        const wWidth = 34; 
-        const bWidth = 22; 
+        const wWidth = 34; const bWidth = 22; 
 
         layoutSpec.forEach(item => {
             keyMap[item.k] = item.note;
@@ -235,123 +219,169 @@
                 keyboardContainer.appendChild(keyDiv);
             }
         });
-
         keyboardContainer.style.width = `${whiteKeyCount * wWidth}px`;
 
-        const presetSelector = document.getElementById('preset-selector');
-        const bendUI = document.getElementById('bend-ui');
-        const canvas = document.getElementById('visualizer');
-        const canvasCtx = canvas.getContext('2d');
-        canvas.width = 1200;
-        canvas.height = 180;
+        // Generate synthetic room impulse response for Reverb
+        function createReverbIR(ctx) {
+            const length = ctx.sampleRate * 2.5; 
+            const buffer = ctx.createBuffer(2, length, ctx.sampleRate);
+            for (let c = 0; c < 2; c++) {
+                const data = buffer.getChannelData(c);
+                for (let i = 0; i < length; i++) {
+                    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 4);
+                }
+            }
+            return buffer;
+        }
 
         function initAudio() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                analyser = audioCtx.createAnalyser();
                 
-                // HIGHER FFT SIZE and SMOOTHING CONSTANT for the new fluid visualizer
-                analyser.fftSize = 2048; 
-                analyser.smoothingTimeConstant = 0.88; 
-                
+                // Base Gain & Analyzer
                 masterGain = audioCtx.createGain();
                 masterGain.gain.value = 0.4;
-                masterGain.connect(analyser);
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.88;
+                
+                // Tone Filter (Biquad)
+                filterNode = audioCtx.createBiquadFilter();
+                filterNode.type = 'lowpass';
+                filterNode.frequency.value = 20000;
+
+                // Echo (Delay)
+                delayNode = audioCtx.createDelay();
+                delayNode.delayTime.value = 0.3;
+                feedbackNode = audioCtx.createGain();
+                feedbackNode.gain.value = 0.4; // Decay length
+                echoGain = audioCtx.createGain();
+                echoGain.gain.value = 0;
+                delayNode.connect(feedbackNode);
+                feedbackNode.connect(delayNode);
+
+                // Reverb (Convolver)
+                convolverNode = audioCtx.createConvolver();
+                convolverNode.buffer = createReverbIR(audioCtx);
+                reverbGain = audioCtx.createGain();
+                reverbGain.gain.value = 0;
+
+                // --- ROUTING CHAIN ---
+                masterGain.connect(filterNode); // Master -> Filter
+                filterNode.connect(analyser); // Filter -> Dry Out
+                
+                // Aux Sends
+                filterNode.connect(delayNode);
+                delayNode.connect(echoGain);
+                echoGain.connect(analyser);
+
+                filterNode.connect(convolverNode);
+                convolverNode.connect(reverbGain);
+                reverbGain.connect(analyser);
+
                 analyser.connect(audioCtx.destination);
                 drawVisualizer();
             }
         }
 
-        // --- Pitch Bend logic ---
+        // --- Controls Binding ---
+        const UI = {
+            preset: document.getElementById('preset-selector'),
+            transpose: document.getElementById('transpose'),
+            filter: document.getElementById('filter'),
+            echo: document.getElementById('echo'),
+            reverb: document.getElementById('reverb'),
+            bend: document.getElementById('bend-ui')
+        };
+
+        UI.filter.addEventListener('input', e => { if(filterNode) filterNode.frequency.value = e.target.value; });
+        UI.echo.addEventListener('input', e => { if(echoGain) echoGain.gain.value = e.target.value; });
+        UI.reverb.addEventListener('input', e => { if(reverbGain) reverbGain.gain.value = e.target.value; });
+
+        // --- Pitch Bend (Fixed Latch) ---
         function applyBend() {
             if(!audioCtx) return;
             const bendRatio = Math.pow(2, bendAmount / 12);
-            bendUI.innerText = `PITCH BEND: ${bendAmount > 0 ? '+' : ''}${bendAmount.toFixed(1)} ST`;
+            UI.bend.innerText = `BEND: ${bendAmount > 0 ? '+' : ''}${bendAmount.toFixed(1)} ST`;
 
             for (let id in activeNotes) {
                 const note = activeNotes[id];
                 if (note.source.frequency && note.baseFreq) {
-                    note.source.frequency.setTargetAtTime(note.baseFreq * bendRatio, audioCtx.currentTime, 0.02);
+                    note.source.frequency.setTargetAtTime(note.baseFreq * bendRatio, audioCtx.currentTime, 0.05);
                 } else if (note.source.playbackRate && note.baseRate) {
-                    note.source.playbackRate.setTargetAtTime(note.baseRate * bendRatio, audioCtx.currentTime, 0.02);
+                    note.source.playbackRate.setTargetAtTime(note.baseRate * bendRatio, audioCtx.currentTime, 0.05);
                 }
             }
         }
 
         window.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            initAudio();
-            bendAmount += e.deltaY * -0.01;
-            bendAmount = Math.max(-2, Math.min(2, bendAmount));
-
+            e.preventDefault(); initAudio();
+            
+            // Adjust bend
+            bendAmount += e.deltaY * -0.005;
+            bendAmount = Math.max(-2, Math.min(2, bendAmount)); 
             applyBend();
 
+            // When scrolling stops for 150ms, snap perfectly back to zero
             clearTimeout(wheelTimeout);
             wheelTimeout = setTimeout(() => {
-            bendAmount = 0;
-            applyBend();
+                bendAmount = 0; 
+                applyBend();
             }, 150);
         }, { passive: false });
 
+        // --- Auto Player Sequencer ---
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-        // --- Fluid Visualizer ---
-        function drawVisualizer() {
-            requestAnimationFrame(drawVisualizer);
-            const bufferLength = analyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
-            analyser.getByteFrequencyData(dataArray);
+        document.getElementById('play-btn').addEventListener('click', async () => {
+            initAudio();
+            const sheet = document.getElementById('sheet-music').value;
+            if (!sheet) return;
+            
+            isAutoPlaying = true;
+            let inChord = false;
+            let i = 0;
 
-            // Clear Background
-            canvasCtx.fillStyle = '#000000';
-            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+            while (i < sheet.length && isAutoPlaying) {
+                const char = sheet[i];
+                const tick = parseInt(document.getElementById('tempo').value);
 
-            // Create smooth gradient fill
-            const gradient = canvasCtx.createLinearGradient(0, 0, 0, canvas.height);
-            gradient.addColorStop(0, 'rgba(0, 255, 204, 0.8)');
-            gradient.addColorStop(1, 'rgba(0, 255, 204, 0.0)');
-
-            canvasCtx.beginPath();
-            canvasCtx.moveTo(0, canvas.height);
-
-            const sliceWidth = canvas.width / bufferLength;
-            let x = 0;
-
-            for (let i = 0; i < bufferLength; i++) {
-                // Scale value to avoid clipping at the absolute top of the canvas
-                const v = dataArray[i] / 255.0;
-                const y = canvas.height - (v * canvas.height * 0.85); 
-
-                if (i === 0) {
-                    canvasCtx.moveTo(x, y);
+                if (char === '[') {
+                    inChord = true;
+                } else if (char === ']') {
+                    inChord = false;
+                    await sleep(tick);
+                } else if (char === '|') {
+                    await sleep(tick * 2.5); // Half second pause approx
+                } else if (char === ' ') {
+                    await sleep(tick); // Short rest
                 } else {
-                    canvasCtx.lineTo(x, y);
+                    const noteIndex = keyMap[char];
+                    if (noteIndex !== undefined) {
+                        playNote(noteIndex, `auto_${i}`);
+                        // Automatically release the key shortly after hitting it
+                        setTimeout(() => stopNote(`auto_${i}`, noteIndex), tick * 1.5);
+                    }
+                    if (!inChord) await sleep(tick); // Wait before next note if not in a chord
                 }
-                x += sliceWidth;
+                i++;
             }
+            isAutoPlaying = false;
+        });
 
-            canvasCtx.lineTo(canvas.width, canvas.height);
-            canvasCtx.lineTo(0, canvas.height);
-            canvasCtx.closePath();
+        document.getElementById('stop-btn').addEventListener('click', () => {
+            isAutoPlaying = false;
+        });
 
-            // Fill the path
-            canvasCtx.fillStyle = gradient;
-            canvasCtx.fill();
-
-            // Add a glowing top line
-            canvasCtx.shadowBlur = 10;
-            canvasCtx.shadowColor = '#00ffcc';
-            canvasCtx.lineWidth = 2;
-            canvasCtx.strokeStyle = '#ffffff';
-            canvasCtx.stroke();
-            canvasCtx.shadowBlur = 0; // reset
-        }
-
-        // --- Core Audio Gen ---
-        function playNote(noteIndex, trackingId) {
+        // --- Core Audio Engine ---
+        function playNote(rawNoteIndex, trackingId) {
             initAudio();
             if (activeNotes[trackingId]) return;
 
-            const mode = presetSelector.value;
+            // Apply global transpose (Tone Shift slider)
+            const transposeOffset = parseInt(UI.transpose.value);
+            const noteIndex = rawNoteIndex + transposeOffset;
+
+            const mode = UI.preset.value;
             const noteGain = audioCtx.createGain();
             noteGain.connect(masterGain);
             noteGain.gain.setValueAtTime(0, audioCtx.currentTime);
@@ -362,11 +392,7 @@
             let currentBaseFreq, currentBaseRate;
 
             if (mode === 'sampler' && customAudioBuffer) {
-                // FIXED ROOT PITCH: 
-                // We subtract 30 so that Note Index 30 (the dead center of the keyboard)
-                // has a rate of 1.0 (original pitch). Lower keys slow it down, higher keys speed it up.
                 currentBaseRate = Math.pow(2, (noteIndex - 30) / 12);
-                
                 source = audioCtx.createBufferSource();
                 source.buffer = customAudioBuffer;
                 source.playbackRate.value = currentBaseRate * bendRatio;
@@ -378,9 +404,10 @@
                 source.frequency.value = currentBaseFreq * bendRatio;
 
                 if (mode === 'organ') {
-                    const real = new Float32Array([0, 1, 0.5, 0.25, 0.1]);
-                    const imag = new Float32Array([0, 0, 0, 0, 0]);
-                    const wave = audioCtx.createPeriodicWave(real, imag);
+                    const wave = audioCtx.createPeriodicWave(
+                        new Float32Array([0, 1, 0.5, 0.25, 0.1]), 
+                        new Float32Array([0, 0, 0, 0, 0])
+                    );
                     source.setPeriodicWave(wave);
                 } else {
                     source.type = mode; 
@@ -391,11 +418,12 @@
 
             activeNotes[trackingId] = { source, noteGain, baseFreq: currentBaseFreq, baseRate: currentBaseRate };
             
-            const keyElement = document.querySelector(`.key[data-index="${noteIndex}"]`);
+            // Visual mapping ignores transpose to show what key was actually pressed
+            const keyElement = document.querySelector(`.key[data-index="${rawNoteIndex}"]`);
             if(keyElement) keyElement.classList.add('active');
         }
 
-        function stopNote(trackingId, noteIndex) {
+        function stopNote(trackingId, rawNoteIndex) {
             if (!activeNotes[trackingId]) return;
 
             const { source, noteGain } = activeNotes[trackingId];
@@ -405,89 +433,84 @@
             
             delete activeNotes[trackingId];
             
-            const keyElement = document.querySelector(`.key[data-index="${noteIndex}"]`);
+            const keyElement = document.querySelector(`.key[data-index="${rawNoteIndex}"]`);
             if(keyElement) keyElement.classList.remove('active');
         }
 
-        // --- Keyboard Controls ---
-        window.addEventListener('keydown', (e) => {
-            if (e.repeat || e.key === 'Shift') return;
-            
-            const noteIndex = keyMap[e.key];
-            if (noteIndex !== undefined) {
-                playNote(noteIndex, e.code);
+        // --- Visualizer ---
+        const canvas = document.getElementById('visualizer');
+        const canvasCtx = canvas.getContext('2d');
+        canvas.width = 1200; canvas.height = 120;
+
+        function drawVisualizer() {
+            requestAnimationFrame(drawVisualizer);
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            analyser.getByteFrequencyData(dataArray);
+
+            canvasCtx.fillStyle = '#000000';
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const gradient = canvasCtx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, 'rgba(0, 255, 204, 0.8)');
+            gradient.addColorStop(1, 'rgba(0, 255, 204, 0.0)');
+
+            canvasCtx.beginPath();
+            canvasCtx.moveTo(0, canvas.height);
+
+            const sliceWidth = canvas.width / bufferLength;
+            let x = 0;
+            for (let i = 0; i < bufferLength; i++) {
+                const v = dataArray[i] / 255.0;
+                const y = canvas.height - (v * canvas.height * 0.85); 
+                if (i === 0) canvasCtx.moveTo(x, y);
+                else canvasCtx.lineTo(x, y);
+                x += sliceWidth;
             }
-        });
+            canvasCtx.lineTo(canvas.width, canvas.height);
+            canvasCtx.lineTo(0, canvas.height);
+            canvasCtx.closePath();
+
+            canvasCtx.fillStyle = gradient; canvasCtx.fill();
+            canvasCtx.shadowBlur = 10; canvasCtx.shadowColor = '#00ffcc';
+            canvasCtx.lineWidth = 2; canvasCtx.strokeStyle = '#ffffff';
+            canvasCtx.stroke(); canvasCtx.shadowBlur = 0; 
+        }
+
+        // --- Hardware Event Listeners ---
         window.addEventListener('keydown', (e) => {
-    if (e.code === "Space") {
-        e.preventDefault();
-        spaceHeld = true;
-    }
-});
-
-window.addEventListener('keyup', (e) => {
-    if (e.code === "Space") {
-        e.preventDefault();
-        spaceHeld = false;
-
-        // Snap back to centre only after releasing Space
-        bendAmount = 0;
-        applyBend();
-    }
-});
+            if (e.repeat || e.key === 'Shift' || document.activeElement.tagName === 'TEXTAREA') return;
+            const noteIndex = keyMap[e.key];
+            if (noteIndex !== undefined) playNote(noteIndex, e.code);
+        });
 
         window.addEventListener('keyup', (e) => {
             if (activeNotes[e.code]) {
-                const indexToStop = layoutSpec.find(x => x.k === e.key)?.note 
-                                 || layoutSpec.find(x => x.k === e.key.toLowerCase())?.note;
-                stopNote(e.code, indexToStop);
+                const rawNote = layoutSpec.find(x => x.k === e.key)?.note || layoutSpec.find(x => x.k === e.key.toLowerCase())?.note;
+                stopNote(e.code, rawNote);
             }
         });
 
-        // --- Mouse Controls ---
-        document.getElementById('keyboard').addEventListener('mousedown', (e) => {
-            if(e.target.classList.contains('key')) {
-                const noteIndex = parseInt(e.target.dataset.index);
-                playNote(noteIndex, `mouse_${noteIndex}`);
-            }
-        });
-        
-        document.getElementById('keyboard').addEventListener('mouseup', (e) => {
-            if(e.target.classList.contains('key')) {
-                const noteIndex = parseInt(e.target.dataset.index);
-                stopNote(`mouse_${noteIndex}`, noteIndex);
-            }
-        });
-        
-        document.getElementById('keyboard').addEventListener('mouseleave', (e) => {
-            if(e.target.classList.contains('key')) {
-                const noteIndex = parseInt(e.target.dataset.index);
-                stopNote(`mouse_${noteIndex}`, noteIndex);
-            }
-        });
+        const kb = document.getElementById('keyboard');
+        kb.addEventListener('mousedown', e => { if(e.target.classList.contains('key')) playNote(parseInt(e.target.dataset.index), `m_${e.target.dataset.index}`); });
+        kb.addEventListener('mouseup', e => { if(e.target.classList.contains('key')) stopNote(`m_${e.target.dataset.index}`, parseInt(e.target.dataset.index)); });
+        kb.addEventListener('mouseleave', e => { if(e.target.classList.contains('key')) stopNote(`m_${e.target.dataset.index}`, parseInt(e.target.dataset.index)); });
 
         // --- Drag & Drop ---
         const dropZone = document.body;
         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
         dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); });
         dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('dragover');
-            
+            e.preventDefault(); dropZone.classList.remove('dragover');
             const file = e.dataTransfer.files[0];
             if (file && file.type.startsWith('audio/')) {
                 initAudio(); 
                 const reader = new FileReader();
-                reader.onload = async (event) => {
-                    try {
-                        customAudioBuffer = await audioCtx.decodeAudioData(event.target.result);
-                        const samplerOption = document.getElementById('sampler-option');
-                        samplerOption.disabled = false;
-                        samplerOption.text = `Sample: ${file.name.substring(0, 15)}...`;
-                        presetSelector.value = 'sampler';
-                    } catch (err) {
-                        alert("Error decoding audio file.");
-                    }
+                reader.onload = async (ev) => {
+                    customAudioBuffer = await audioCtx.decodeAudioData(ev.target.result);
+                    const sel = document.getElementById('sampler-option');
+                    sel.disabled = false; sel.text = `Sample: ${file.name.substring(0, 15)}...`;
+                    UI.preset.value = 'sampler';
                 };
                 reader.readAsArrayBuffer(file);
             }
